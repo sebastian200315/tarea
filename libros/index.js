@@ -1,10 +1,12 @@
 const express = require('express');
-const fs = require('fs');
 const app = express();
 const PORT = 8080;
 
-// Array de libros con ID
-const libros = [
+// Middleware para parsear JSON
+app.use(express.json());
+
+// Array de libros
+let libros = [
     {
         id: 1,
         autor: "Gabriel García Márquez",
@@ -28,12 +30,26 @@ const libros = [
     }
 ];
 
-// Ruta para obtener todos los libros
+// GET: obtener todos los libros o filtrar por autor (?autor=...)
 app.get('/libros', (req, res) => {
+    const autorBuscado = req.query.autor;
+
+    if (autorBuscado) {
+        const resultado = libros.filter(libro =>
+            libro.autor.toLowerCase().includes(autorBuscado.toLowerCase())
+        );
+
+        if (resultado.length === 0) {
+            return res.status(404).json({ mensaje: "No se encontraron libros del autor especificado." });
+        }
+
+        return res.json(resultado);
+    }
+
     res.json(libros);
 });
 
-// Ruta para buscar libro por ID
+// GET: obtener libro por ID
 app.get('/libros/:id', (req, res) => {
     const id = parseInt(req.params.id);
     const libro = libros.find(l => l.id === id);
@@ -45,7 +61,64 @@ app.get('/libros/:id', (req, res) => {
     }
 });
 
+// POST: agregar un nuevo libro
+app.post('/libros', (req, res) => {
+    const { autor, titulo, descripcion, tipo } = req.body;
 
+    if (!autor || !titulo || !descripcion || !tipo) {
+        return res.status(400).json({ mensaje: "Faltan campos obligatorios: autor, titulo, descripcion, tipo" });
+    }
+
+    const nuevoLibro = {
+        id: libros.length > 0 ? libros[libros.length - 1].id + 1 : 1,
+        autor,
+        titulo,
+        descripcion,
+        tipo
+    };
+
+    libros.push(nuevoLibro);
+    res.status(201).json(nuevoLibro);
+});
+
+// PUT: actualizar libro por ID
+app.put('/libros/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const libro = libros.find(l => l.id === id);
+
+    if (!libro) {
+        return res.status(404).json({ mensaje: "Libro no encontrado" });
+    }
+
+    const { autor, titulo, descripcion, tipo } = req.body;
+
+    libro.autor = autor || libro.autor;
+    libro.titulo = titulo || libro.titulo;
+    libro.descripcion = descripcion || libro.descripcion;
+    libro.tipo = tipo || libro.tipo;
+
+    res.json(libro);
+});
+
+// DELETE: eliminar libro por ID
+app.delete('/libros/:id', (req, res) => {
+    const id = parseInt(req.params.id);
+    const index = libros.findIndex(l => l.id === id);
+
+    if (index === -1) {
+        return res.status(404).json({ mensaje: "Libro no encontrado" });
+    }
+
+    libros.splice(index, 1);
+    res.json({ mensaje: "Libro eliminado correctamente" });
+});
+
+// Ruta base
+app.get('/', (req, res) => {
+    res.send('📚 API de libros funcionando correctamente');
+});
+
+// Iniciar servidor
 app.listen(PORT, () => {
     console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
